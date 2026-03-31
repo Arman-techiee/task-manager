@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { formatDistanceToNowStrict, isPast } from 'date-fns';
 import toast from 'react-hot-toast';
+import Footer from '../components/Footer';
 import TaskCard from '../components/TaskCard';
 import TaskModal from '../components/TaskModal';
 import { useAuth } from '../context/AuthContext';
@@ -403,6 +404,8 @@ export default function BoardPage() {
             })}
           </div>
         </DragDropContext>
+
+        <Footer />
       </main>
 
       {showModal && (
