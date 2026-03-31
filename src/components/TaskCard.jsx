@@ -2,10 +2,13 @@ import { addHours, format, isPast, isWithinInterval } from 'date-fns';
 
 export default function TaskCard({ task, onEdit, onDelete, provided }) {
   const isOverdue = task.deadline && isPast(new Date(task.deadline)) && task.status !== 'done';
-  const isSoon = task.deadline && !isOverdue && isWithinInterval(new Date(task.deadline), {
-    start: new Date(),
-    end: addHours(new Date(), 24),
-  });
+  const isSoon =
+    task.deadline &&
+    !isOverdue &&
+    isWithinInterval(new Date(task.deadline), {
+      start: new Date(),
+      end: addHours(new Date(), 24),
+    });
 
   const priorityTone = {
     high: 'border-rose-400/20 bg-rose-400/10 text-rose-200',
@@ -46,7 +49,7 @@ export default function TaskCard({ task, onEdit, onDelete, provided }) {
           </button>
           <button
             type="button"
-            onClick={() => onDelete(task._id)}
+            onClick={() => onDelete(task.id)}
             title="Delete"
             className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-rose-400/20 bg-rose-400/10 text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-200 transition hover:bg-rose-400/20"
           >

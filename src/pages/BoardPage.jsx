@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
-import axios from 'axios';
-import toast from 'react-hot-toast';
 import { formatDistanceToNowStrict, isPast } from 'date-fns';
-import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 import TaskCard from '../components/TaskCard';
 import TaskModal from '../components/TaskModal';
+import { useAuth } from '../context/AuthContext';
+
+const TASKS_STORAGE_KEY = 'taskflow-tasks';
 
 const COLUMNS = [
   {
@@ -31,6 +32,44 @@ const COLUMNS = [
   },
 ];
 
+function createTaskId() {
+  return crypto.randomUUID();
+}
+
+function sortTasks(items) {
+  return [...items].sort((a, b) => {
+    if ((a.order ?? 0) !== (b.order ?? 0)) {
+      return (a.order ?? 0) - (b.order ?? 0);
+    }
+    return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
+  });
+}
+
+function loadTasks() {
+  try {
+    const raw = localStorage.getItem(TASKS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    localStorage.removeItem(TASKS_STORAGE_KEY);
+    return [];
+  }
+}
+
+function persistTasks(items) {
+  localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(items));
+}
+
+function mergeColumnUpdates(allTasks, ...columnGroups) {
+  const updatedById = new Map(columnGroups.flat().map(task => [task.id, task]));
+  return allTasks.map(task => updatedById.get(task.id) || task);
+}
+
+function normalizeColumnOrder(allTasks, status) {
+  return sortTasks(allTasks)
+    .filter(task => task.status === status)
+    .map((task, index) => ({ ...task, order: index }));
+}
+
 function LoadingBoard() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(180,245,220,0.18),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(242,120,75,0.18),_transparent_28%),linear-gradient(180deg,_#07111a_0%,_#08131d_45%,_#091721_100%)] text-slate-100">
@@ -40,7 +79,7 @@ function LoadingBoard() {
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-emerald-200/20 border-t-emerald-300" />
           <div>
             <p className="font-display text-sm uppercase tracking-[0.32em] text-emerald-200/70">Syncing board</p>
-            <p className="text-sm text-slate-300">Loading your current tasks</p>
+            <p className="text-sm text-slate-300">Restoring your local tasks</p>
           </div>
         </div>
       </div>
@@ -49,64 +88,86 @@ function LoadingBoard() {
 }
 
 export default function BoardPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, login } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editTask, setEditTask] = useState(null);
   const [priorityFilter, setPriorityFilter] = useState('all');
 
-  const fetchTasks = useCallback(async () => {
-    try {
-      const { data } = await axios.get('/api/tasks');
-      setTasks(data);
-    } catch {
-      toast.error('Failed to load tasks');
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    setTasks(loadTasks());
+    setLoading(false);
   }, []);
 
   useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+    if (!loading) {
+      persistTasks(tasks);
+    }
+  }, [loading, tasks]);
 
-  const getColumnTasks = colId => {
-    let filtered = tasks.filter(task => task.status === colId);
+  const getColumnTasks = status => {
+    let filtered = tasks.filter(task => task.status === status);
     if (priorityFilter !== 'all') {
       filtered = filtered.filter(task => task.priority === priorityFilter);
     }
-    return filtered.sort((a, b) => (a.order || 0) - (b.order || 0));
+    return sortTasks(filtered);
   };
 
   const handleSave = async form => {
-    try {
-      if (editTask?._id) {
-        const { data } = await axios.put(`/api/tasks/${editTask._id}`, form);
-        setTasks(prev => prev.map(task => (task._id === data._id ? data : task)));
-        toast.success('Task updated');
-      } else {
-        const { data } = await axios.post('/api/tasks', form);
-        setTasks(prev => [data, ...prev]);
-        toast.success('Task created');
+    const timestamp = new Date().toISOString();
+
+    setTasks(current => {
+      if (editTask?.id) {
+        const previous = current.find(task => task.id === editTask.id);
+        const nextTasks = current.map(task =>
+          task.id === editTask.id
+            ? {
+                ...task,
+                ...form,
+                deadline: form.deadline || '',
+                updatedAt: timestamp,
+              }
+            : task,
+        );
+
+        const updatedColumns = [normalizeColumnOrder(nextTasks, form.status)];
+        if (previous && previous.status !== form.status) {
+          updatedColumns.push(normalizeColumnOrder(nextTasks, previous.status));
+        }
+        return mergeColumnUpdates(nextTasks, ...updatedColumns);
       }
-      setShowModal(false);
-      setEditTask(null);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to save task');
-    }
+
+      const order = current.filter(task => task.status === form.status).length;
+      return [
+        {
+          id: createTaskId(),
+          ...form,
+          deadline: form.deadline || '',
+          order,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+        ...current,
+      ];
+    });
+
+    toast.success(editTask?.id ? 'Task updated' : 'Task created');
+    setShowModal(false);
+    setEditTask(null);
   };
 
-  const handleDelete = async id => {
+  const handleDelete = id => {
     if (!confirm('Delete this task?')) return;
 
-    try {
-      await axios.delete(`/api/tasks/${id}`);
-      setTasks(prev => prev.filter(task => task._id !== id));
-      toast.success('Task deleted');
-    } catch {
-      toast.error('Failed to delete task');
-    }
+    setTasks(current => {
+      const taskToDelete = current.find(task => task.id === id);
+      const nextTasks = current.filter(task => task.id !== id);
+      if (!taskToDelete) return nextTasks;
+      return mergeColumnUpdates(nextTasks, normalizeColumnOrder(nextTasks, taskToDelete.status));
+    });
+
+    toast.success('Task deleted');
   };
 
   const handleEdit = task => {
@@ -114,36 +175,49 @@ export default function BoardPage() {
     setShowModal(true);
   };
 
-  const handleDragEnd = async result => {
+  const handleDragEnd = result => {
     const { source, destination, draggableId } = result;
 
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-    const task = tasks.find(item => item._id === draggableId);
-    if (!task) return;
+    setTasks(current => {
+      const movingTask = current.find(task => task.id === draggableId);
+      if (!movingTask) return current;
 
-    const updatedTask = { ...task, status: destination.droppableId, order: destination.index };
-    setTasks(prev => prev.map(item => (item._id === draggableId ? updatedTask : item)));
+      const sourceTasks = sortTasks(current).filter(task => task.status === source.droppableId);
+      const destinationTasks =
+        source.droppableId === destination.droppableId
+          ? sourceTasks
+          : sortTasks(current).filter(task => task.status === destination.droppableId);
 
-    try {
-      await axios.put(`/api/tasks/${draggableId}`, {
+      const sourceWithoutTask = sourceTasks.filter(task => task.id !== draggableId);
+      const movedTask = {
+        ...movingTask,
         status: destination.droppableId,
-        order: destination.index,
-      });
-    } catch {
-      toast.error('Failed to move task');
-      setTasks(prev => prev.map(item => (item._id === draggableId ? task : item)));
-    }
+        updatedAt: new Date().toISOString(),
+      };
+      const destinationWithTask = [...destinationTasks.filter(task => task.id !== draggableId)];
+      destinationWithTask.splice(destination.index, 0, movedTask);
+
+      const updatedSource = sourceWithoutTask.map((task, index) => ({ ...task, order: index }));
+      const updatedDestination = destinationWithTask.map((task, index) => ({ ...task, order: index }));
+
+      return mergeColumnUpdates(current, updatedSource, updatedDestination);
+    });
   };
 
   const totalTasks = tasks.length;
   const inProgCt = tasks.filter(task => task.status === 'in-progress').length;
   const overdueCt = tasks.filter(task => task.deadline && isPast(new Date(task.deadline)) && task.status !== 'done').length;
   const highPriorityCt = tasks.filter(task => task.priority === 'high' && task.status !== 'done').length;
-  const nextDeadline = tasks
-    .filter(task => task.deadline && task.status !== 'done')
-    .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))[0];
+  const nextDeadline = useMemo(
+    () =>
+      tasks
+        .filter(task => task.deadline && task.status !== 'done')
+        .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))[0],
+    [tasks],
+  );
 
   if (loading) {
     return <LoadingBoard />;
@@ -163,7 +237,7 @@ export default function BoardPage() {
             </div>
             <div>
               <p className="font-display text-2xl text-white">TaskFlow</p>
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Executive task board</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Local-first task board</p>
             </div>
           </div>
 
@@ -174,9 +248,21 @@ export default function BoardPage() {
               </div>
               <div>
                 <p className="text-sm font-medium text-white">{user?.name}</p>
-                <p className="text-xs text-slate-400">{user?.email}</p>
+                <p className="text-xs text-slate-400">{user?.email || 'Stored locally on this device'}</p>
               </div>
             </div>
+            <button
+              className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-medium text-slate-100 transition hover:bg-white/10"
+              onClick={() => {
+                const nextName = prompt('Update workspace name', user?.name || '');
+                if (nextName && nextName.trim()) {
+                  login({ ...user, name: nextName.trim() });
+                  toast.success('Workspace updated');
+                }
+              }}
+            >
+              Edit profile
+            </button>
             <button
               className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-medium text-slate-100 transition hover:bg-white/10"
               onClick={logout}
@@ -192,12 +278,12 @@ export default function BoardPage() {
           <div className="rounded-[2rem] border border-white/10 bg-white/8 p-6 shadow-[0_20px_100px_rgba(0,0,0,0.26)] backdrop-blur-2xl sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-200/70">Workspace overview</p>
             <h1 className="mt-4 font-display text-4xl leading-none text-white sm:text-5xl">
-              Design your day with
-              <span className="mt-2 block text-slate-300">clarity, priority, and flow.</span>
+              Keep your work
+              <span className="mt-2 block text-slate-300">clear, local, and moving.</span>
             </h1>
             <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-300/85 sm:text-base">
-              Organize deliverables, surface urgent work, and move tasks across a portfolio-grade board
-              that feels polished enough for production demos.
+              Every task update is saved directly in your browser, so this board stays fast,
+              simple, and easy to deploy as a frontend-only Vite app.
             </p>
 
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
@@ -280,13 +366,9 @@ export default function BoardPage() {
                     </div>
 
                     <Droppable droppableId={column.id}>
-                      {(provided, snapshot) => (
+                      {provided => (
                         <div
-                          className={`min-h-[20rem] space-y-3 rounded-[1.4rem] border border-dashed p-3 transition ${
-                            snapshot.isDraggingOver
-                              ? 'border-emerald-300/30 bg-emerald-300/6'
-                              : 'border-white/8 bg-white/[0.03]'
-                          }`}
+                          className="min-h-[20rem] space-y-3 rounded-[1.4rem] border border-dashed border-white/8 bg-white/[0.03] p-3 transition"
                           ref={provided.innerRef}
                           {...provided.droppableProps}
                         >
@@ -299,7 +381,7 @@ export default function BoardPage() {
                             </div>
                           ) : (
                             columnTasks.map((task, index) => (
-                              <Draggable key={task._id} draggableId={task._id} index={index}>
+                              <Draggable key={task.id} draggableId={task.id} index={index}>
                                 {dragProvided => (
                                   <TaskCard
                                     task={task}

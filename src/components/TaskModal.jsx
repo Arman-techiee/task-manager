@@ -27,25 +27,28 @@ export default function TaskModal({ task, onClose, onSave }) {
     setForm(defaultForm);
   }, [task]);
 
-  const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const handleChange = event => {
+    const { name, value } = event.target;
+    setForm(current => ({ ...current, [name]: value }));
+  };
 
-  const handleSubmit = async e => {
-    e.preventDefault();
+  const handleSubmit = async event => {
+    event.preventDefault();
     setLoading(true);
-    await onSave({ ...form, deadline: form.deadline || undefined });
+    await onSave({ ...form, deadline: form.deadline || '' });
     setLoading(false);
   };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md"
-      onClick={e => e.target === e.currentTarget && onClose()}
+      onClick={event => event.target === event.currentTarget && onClose()}
     >
       <div className="w-full max-w-2xl rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(8,15,23,0.96))] p-6 shadow-[0_30px_120px_rgba(0,0,0,0.45)] sm:p-8">
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-200/70">Task editor</p>
-            <h3 className="mt-2 font-display text-3xl text-white">{task?._id ? 'Edit task' : 'Create a new task'}</h3>
+            <h3 className="mt-2 font-display text-3xl text-white">{task?.id ? 'Edit task' : 'Create a new task'}</h3>
             <p className="mt-2 text-sm text-slate-300">Capture the work, set its urgency, and place it where execution is clear.</p>
           </div>
           <button
@@ -136,7 +139,7 @@ export default function TaskModal({ task, onClose, onSave }) {
               className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-300 via-teal-300 to-orange-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
               disabled={loading}
             >
-              {loading ? 'Saving...' : task?._id ? 'Save changes' : 'Create task'}
+              {loading ? 'Saving...' : task?.id ? 'Save changes' : 'Create task'}
             </button>
           </div>
         </form>

@@ -12,7 +12,7 @@ function LoadingScreen() {
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-emerald-200/20 border-t-emerald-300" />
           <div>
             <p className="font-display text-sm uppercase tracking-[0.32em] text-emerald-200/70">TaskFlow</p>
-            <p className="text-sm text-slate-300">Preparing your workspace</p>
+            <p className="text-sm text-slate-300">Loading your local workspace</p>
           </div>
         </div>
       </div>
