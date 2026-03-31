@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { format } from 'date-fns';
+import { CalendarDays, Clock3, Sparkles, X } from 'lucide-react';
 
 const defaultForm = {
   title: '',
@@ -39,6 +41,10 @@ export default function TaskModal({ task, onClose, onSave }) {
     setLoading(false);
   };
 
+  const deadlinePreview = form.deadline
+    ? format(new Date(form.deadline), "EEEE, MMMM d 'at' h:mm a")
+    : 'No deadline selected';
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md"
@@ -56,7 +62,7 @@ export default function TaskModal({ task, onClose, onSave }) {
             onClick={onClose}
             className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/6 text-slate-200 transition hover:bg-white/10 hover:text-white"
           >
-            ✕
+            <X className="h-4.5 w-4.5" />
           </button>
         </div>
 
@@ -115,15 +121,45 @@ export default function TaskModal({ task, onClose, onSave }) {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-200">Deadline</label>
-            <input
-              type="datetime-local"
-              name="deadline"
-              value={form.deadline}
-              onChange={handleChange}
-              className="w-full rounded-2xl border border-white/10 bg-white/6 px-4 py-3.5 text-sm text-white outline-none transition focus:border-emerald-300/40 focus:bg-white/10"
-            />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-200">
+                <CalendarDays className="h-4 w-4 text-emerald-200/80" />
+                Deadline
+              </label>
+              <span className="text-xs uppercase tracking-[0.24em] text-slate-500">Optional</span>
+            </div>
+            <div className="rounded-[1.5rem] border border-white/10 bg-white/6 p-4">
+              <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
+                <input
+                  type="datetime-local"
+                  name="deadline"
+                  value={form.deadline}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3.5 text-sm text-white outline-none transition focus:border-emerald-300/40"
+                />
+                {form.deadline && (
+                  <button
+                    type="button"
+                    onClick={() => setForm(current => ({ ...current, deadline: '' }))}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/10"
+                  >
+                    <X className="h-4 w-4" />
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="mt-4 rounded-2xl border border-white/8 bg-slate-950/55 px-4 py-3">
+                <p className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-emerald-200/70">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Schedule preview
+                </p>
+                <p className="mt-2 inline-flex items-center gap-2 font-display text-lg text-white">
+                  <Clock3 className="h-4 w-4 text-emerald-200/70" />
+                  {deadlinePreview}
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-col-reverse gap-3 border-t border-white/8 pt-6 sm:flex-row sm:justify-end">

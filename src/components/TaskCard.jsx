@@ -1,4 +1,5 @@
-import { addHours, format, isPast, isWithinInterval } from 'date-fns';
+import { addHours, format, formatDistanceToNowStrict, isPast, isWithinInterval } from 'date-fns';
+import { AlarmClock, CalendarDays, Clock3 } from 'lucide-react';
 
 export default function TaskCard({ task, onEdit, onDelete, provided }) {
   const isOverdue = task.deadline && isPast(new Date(task.deadline)) && task.status !== 'done';
@@ -15,6 +16,18 @@ export default function TaskCard({ task, onEdit, onDelete, provided }) {
     medium: 'border-amber-300/20 bg-amber-300/10 text-amber-100',
     low: 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
   };
+
+  const deadlineTone = isOverdue
+    ? 'border-rose-400/20 bg-rose-400/10 text-rose-100'
+    : isSoon
+      ? 'border-amber-300/20 bg-amber-300/10 text-amber-50'
+      : 'border-white/10 bg-slate-900/70 text-slate-100';
+
+  const deadlineLabel = isOverdue
+    ? 'Overdue'
+    : isSoon
+      ? 'Due soon'
+      : 'Scheduled';
 
   return (
     <div
@@ -64,17 +77,33 @@ export default function TaskCard({ task, onEdit, onDelete, provided }) {
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/8 pt-4">
         {task.deadline && (
-          <span
-            className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium ${
-              isOverdue
-                ? 'bg-rose-400/12 text-rose-200'
-                : isSoon
-                  ? 'bg-amber-300/12 text-amber-100'
-                  : 'bg-slate-800/75 text-slate-300'
-            }`}
-          >
-            {format(new Date(task.deadline), 'MMM d, HH:mm')}
-          </span>
+          <div className={`min-w-[12rem] rounded-2xl border px-3 py-3 ${deadlineTone}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-white/60">
+                  <AlarmClock className="h-3.5 w-3.5" />
+                  {deadlineLabel}
+                </p>
+                <p className="mt-2 inline-flex items-center gap-2 font-display text-base text-white">
+                  <CalendarDays className="h-4 w-4 text-white/65" />
+                  {format(new Date(task.deadline), 'EEE, MMM d')}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-right shadow-inner shadow-black/10">
+                <p className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.24em] text-white/50">
+                  <Clock3 className="h-3 w-3" />
+                  Time
+                </p>
+                <p className="mt-1 font-display text-lg text-white">
+                  {format(new Date(task.deadline), 'h:mm a')}
+                </p>
+              </div>
+            </div>
+            <p className="mt-3 inline-flex items-center gap-2 text-xs text-white/70">
+              <Clock3 className="h-3.5 w-3.5 text-white/55" />
+              {formatDistanceToNowStrict(new Date(task.deadline), { addSuffix: true })}
+            </p>
+          </div>
         )}
         <span className="text-xs uppercase tracking-[0.24em] text-slate-500">Drag to move</span>
       </div>
