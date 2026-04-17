@@ -1,6 +1,6 @@
 import { Github } from 'lucide-react';
 
-const REPO_URL = 'https://github.com/Arman-techiee/task-manager.git';
+const REPO_URL = 'https://github.com/armanroot/task-manager.git';
 
 export default function Footer({ className = '' }) {
   return (
@@ -22,3 +22,4 @@ export default function Footer({ className = '' }) {
     </footer>
   );
 }
+

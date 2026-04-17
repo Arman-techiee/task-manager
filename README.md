@@ -135,4 +135,5 @@ Built by Arman Khan
 
 GitHub repository:
 
-[`Arman-techiee/task-manager`](https://github.com/Arman-techiee/task-manager.git)
+[`armanroot/task-manager`](https://github.com/armanroot/task-manager.git)
+
