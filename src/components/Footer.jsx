@@ -1,6 +1,6 @@
 import { Github } from 'lucide-react';
 
-const REPO_URL = 'https://github.com/armanroot/task-manager.git';
+const REPO_URL = 'https://github.com/armancore/task-manager.git';
 
 export default function Footer({ className = '' }) {
   return (

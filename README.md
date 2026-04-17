@@ -135,5 +135,5 @@ Built by Arman Khan
 
 GitHub repository:
 
-[`armanroot/task-manager`](https://github.com/armanroot/task-manager.git)
+[`armancore/task-manager`](https://github.com/armancore/task-manager.git)
 
